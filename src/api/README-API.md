@@ -1,0 +1,1 @@
+# {'id': 2923, 'name': 'ЭЛСОМ', 'image': 'elsom100x100.png', 'group': {'id': 152, 'name': 'Электронные кошельки'}, 'operator': {'id': 129, 'code': 'ELSOM', 'name': 'ЭЛСОМ'}, 'status_code': 'WAITING', 'props': '0779032100', 'props_name': None}

@@ -1,0 +1,140 @@
+variables:
+  SERVICE: "smart-search"
+  PROJECT_FOLDER: "/opt/ci-projects/$SERVICE"
+  PROJECT_FOLDER_PREPROD: "/opt/ci-projects/$SERVICE-preprod"
+  SSH_SERVER: "ci@10.152.135.4"
+  SSH_SERVER_TEST: "ci@10.152.93.2"
+  REGISTRY_PROD: "image.bakai.local"
+  REGISTRY_TEST: "registry.bakai.local"
+  DOCKER_IMAGE_TEST: "$REGISTRY_TEST/$SERVICE:$CI_COMMIT_BRANCH"
+  DOCKER_IMAGE_PROD: "$REGISTRY_PROD/$SERVICE:$CI_COMMIT_TAG"
+
+
+stages:
+  - build-test
+  - prepare-test
+  - deploy-test
+  - build-prod
+  - prepare-prod
+  - deploy-prod
+
+# --------------- dev -------------
+
+build-test-job:
+  stage: build-test
+  tags:
+    - test-10.152.93.4
+  script:
+    - docker rmi -f v$(docker images "${DOCKER_IMAGE_TEST}" -a -q) || echo err
+    - sed -i -e "s|IMAGE_DNS|${REGISTRY_TEST}|g" ./Dockerfile
+    - docker build --no-cache -t $DOCKER_IMAGE_TEST -f Dockerfile .
+    - docker push "${DOCKER_IMAGE_TEST}"
+    - echo "successfully deployed pre prod image ${DOCKER_IMAGE_TEST}"
+  rules:
+    - if: $CI_COMMIT_BRANCH == 'dev'
+
+prepare-test-job:
+  stage: prepare-test
+  tags:
+    - test-10.152.93.4
+  script:
+    - IMAGE_NAME="${DOCKER_IMAGE_TEST}" && sed -i -e "s|IMAGE_NAME|${IMAGE_NAME}|g" ./docker-compose.yml
+    - chmod 600 "$SSH_KEY_TEST"
+    - ssh -i "$SSH_KEY_TEST" -p 51488 "$SSH_SERVER_TEST" "mkdir $PROJECT_FOLDER || echo err"
+    - scp -i "$SSH_KEY_TEST" -P 51488 "$ENV_TEST" "$SSH_SERVER_TEST:$PROJECT_FOLDER/.env"
+    - scp -i "$SSH_KEY_TEST" -P 51488 ./docker-compose.yml "$SSH_SERVER_TEST:$PROJECT_FOLDER/docker-compose.yml"
+  rules:
+    - if: $CI_COMMIT_BRANCH == 'dev'
+
+deploy-test-job:
+  stage: deploy-test
+  tags:
+   - test-10.152.93.4
+  script:
+    - chmod 600 "$SSH_KEY_TEST"
+    - ssh -i "$SSH_KEY_TEST" -p 51488 "$SSH_SERVER_TEST" "docker pull ${DOCKER_IMAGE_TEST}"
+    - ssh -i $SSH_KEY_TEST -p 51488 $SSH_SERVER_TEST "cd $PROJECT_FOLDER && docker-compose up -d --force-recreate"
+    - echo "Application successfully deployed"
+  rules:
+    - if: $CI_COMMIT_BRANCH == 'dev'
+
+# --------------- preprod -------------
+
+build-preprod-job:
+  stage: build-prod
+  tags:
+    - prod-10.152.118.2
+  script:
+    - docker rmi -f v$(docker images "${DOCKER_IMAGE_PROD}" -a -q) || echo err
+    - sed -i -e "s|IMAGE_DNS|${REGISTRY_PROD}|g" ./Dockerfile
+    - docker build --no-cache -t "${DOCKER_IMAGE_PROD}" .
+    - docker push "${DOCKER_IMAGE_PROD}"
+    - echo "successfully deployed pre prod image ${DOCKER_IMAGE_PROD}"
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^rc-.*$/'
+
+prepare-preprod-job:
+  stage: prepare-prod
+  tags:
+    - prod-10.152.118.2
+  script:
+    - IMAGE_NAME="${DOCKER_IMAGE_PROD}" && sed -i -e "s|IMAGE_NAME|${IMAGE_NAME}|g" ./docker-compose-preprod.yml
+    - chmod 600 "$SSH_KEY"
+    - scp -i "$SSH_KEY" -P 51488 "$ENV_PREPROD" "$SSH_SERVER:$PROJECT_FOLDER_PREPROD/.env"
+    - scp -i "$SSH_KEY" -P 51488 ./docker-compose-preprod.yml "$SSH_SERVER:$PROJECT_FOLDER_PREPROD/docker-compose.yml"
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^rc-.*$/'
+
+deploy-preprod-job:
+  stage: deploy-prod
+  tags:
+    - prod-10.152.118.2
+  script:
+    - chmod 600 "$SSH_KEY"
+    - ssh -i "$SSH_KEY" -p 51488 "$SSH_SERVER" "cd $PROJECT_FOLDER_PREPROD && docker compose down"
+    - ssh -i "$SSH_KEY" -p 51488 "$SSH_SERVER" "docker pull ${DOCKER_IMAGE_PROD}"
+    - ssh -i "$SSH_KEY" -p 51488 "$SSH_SERVER" "cd $PROJECT_FOLDER_PREPROD && docker compose up -d --force-recreate"
+    - echo "Application successfully deployed"
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^rc-.*$/'
+
+# --------------- prod -------------
+
+build-prod-job:
+  stage: build-prod
+  tags:
+    - prod-10.152.118.2
+  script:
+    - docker rmi -f v$(docker images "${DOCKER_IMAGE_PROD}" -a -q) || echo err
+    - sed -i -e "s|IMAGE_DNS|${REGISTRY_PROD}|g" ./Dockerfile
+    - docker build --no-cache -t "${DOCKER_IMAGE_PROD}" .
+    - docker push "${DOCKER_IMAGE_PROD}"
+    - echo "successfully deployed pre prod image ${DOCKER_IMAGE_PROD}"
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v.*$/'
+
+prepare-prod-job:
+  stage: prepare-prod
+  tags:
+    - prod-10.152.118.2
+  script:
+    - IMAGE_NAME="${DOCKER_IMAGE_PROD}" && sed -i -e "s|IMAGE_NAME|${IMAGE_NAME}|g" ./docker-compose.yml
+    - chmod 600 "$SSH_KEY"
+    - ssh -i "$SSH_KEY" -p 51488 "$SSH_SERVER" "mkdir $PROJECT_FOLDER || echo err"
+    - scp -i "$SSH_KEY" -P 51488 "$ENV_PROD" "$SSH_SERVER:$PROJECT_FOLDER/.env"
+    - scp -i "$SSH_KEY" -P 51488 ./docker-compose.yml "$SSH_SERVER:$PROJECT_FOLDER/docker-compose.yml"
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v.*$/'
+
+deploy-prod-job:
+  stage: deploy-prod
+  tags:
+    - prod-10.152.118.2
+  script:
+    - chmod 600 "$SSH_KEY"
+    - ssh -i "$SSH_KEY" -p 51488 "$SSH_SERVER" "cd $PROJECT_FOLDER && docker compose down"
+    - ssh -i "$SSH_KEY" -p 51488 "$SSH_SERVER" "docker pull ${DOCKER_IMAGE_PROD}"
+    - ssh -i "$SSH_KEY" -p 51488 "$SSH_SERVER" "cd $PROJECT_FOLDER && docker compose up -d --force-recreate"
+    - echo "Application successfully deployed"
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v.*$/'

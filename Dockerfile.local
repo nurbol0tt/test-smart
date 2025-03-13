@@ -1,0 +1,15 @@
+FROM python:3.9-bullseye as builder
+
+WORKDIR /app
+
+COPY . .
+
+CMD ["SET", "HTTP_PROXY=http://proxy-squid.bakai.local:3128"]
+CMD ["SET", "HTTP_PROXY=http://proxy-squid.bakai.local:3128"]
+
+RUN pip install --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org --no-cache-dir psycopg2-binary
+RUN pip uninstall --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org --no-cache-dir psycopg2
+RUN pip install --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org --no-cache-dir -r requirements.txt
+
+CMD ["alembic", "init", "alembic"]
+CMD ["CREATE", "SCHEMA", "core"]
