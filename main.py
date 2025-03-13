@@ -15,7 +15,6 @@ from src.services.props.services import ConsumeService
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     container = app.state.container
-
     service = await container.get(ConsumeService)
 
     task = asyncio.create_task(service())

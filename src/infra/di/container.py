@@ -73,7 +73,7 @@ class DatabaseProvider(Provider):
 class ServiceProvider(Provider):
     props_service = provide(SaveDataPropsService)
     client_service = provide(ClientService)
-
+    consume_service = provide(ConsumeService)
 
     @provide(scope=Scope.APP, provides=IKafkaConsumer)
     def kafka_consumer(self) -> IKafkaConsumer:
