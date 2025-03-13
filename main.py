@@ -38,11 +38,9 @@ def initialize_app(_app: FastAPI) -> FastAPI:
     )
     container = create_container()
     _app.state.container = container
-    _app.router.lifespan_context = lifespan  # <<< Lifespan добавлен здесь
-
     setup_dishka(container, _app)
 
     return _app
 
 
-app = initialize_app(FastAPI())
+app = initialize_app(FastAPI(lifespan=lifespan))
