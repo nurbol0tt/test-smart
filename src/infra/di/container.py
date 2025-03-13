@@ -47,11 +47,11 @@ def create_container() -> AsyncContainer:
     )
 
 
-get_mongo_session = from_context(provides=AsyncIOMotorClient, scope=Scope.REQUEST)
 
 
 class DatabaseProvider(Provider):
     request = from_context(provides=fastapi.Request, scope=Scope.REQUEST)
+    get_mongo_session = from_context(provides=AsyncIOMotorClient, scope=Scope.REQUEST)
 
     @provide(scope=Scope.APP)
     def get_client(self) -> AsyncIOMotorClient:
@@ -74,12 +74,8 @@ class ServiceProvider(Provider):
     props_service = provide(SaveDataPropsService)
     client_service = provide(ClientService)
 
-    @provide(scope=Scope.REQUEST)
-    def consume_service(self, service: SaveDataPropsService,
-                        broker: IKafkaConsumer) -> ConsumeService:
-        return ConsumeService(service=service, broker=broker)
 
-    @provide(scope=Scope.REQUEST)
+    @provide(scope=Scope.APP, provides=IKafkaConsumer)
     def kafka_consumer(self) -> IKafkaConsumer:
         return KafkaConsumerService(
             bootstrap_servers=settings.KAFKA_URL,

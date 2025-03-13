@@ -27,7 +27,6 @@ async def lifespan(app: FastAPI):
         with contextlib.suppress(asyncio.CancelledError):
             await task
 
-
 def initialize_app(_app: FastAPI) -> FastAPI:
     _app.include_router(bind_routes())
     _app.add_middleware(
@@ -38,9 +37,10 @@ def initialize_app(_app: FastAPI) -> FastAPI:
         allow_headers=["*"],
     )
     container = create_container()
-    setup_dishka(container, _app)
     _app.state.container = container
-    _app.router.lifespan_context = lifespan
+    _app.router.lifespan_context = lifespan  # <<< Lifespan добавлен здесь
+
+    setup_dishka(container, _app)
 
     return _app
 

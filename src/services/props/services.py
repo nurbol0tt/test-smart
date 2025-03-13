@@ -1,5 +1,6 @@
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
+from src.infra.msg_broker.common import KafkaConsumerService
 from src.interfaces.msg_broker.brokers import IKafkaConsumer
 from src.interfaces.repo.props import (
     ICategoryRepository,
